@@ -1,2 +1,3 @@
 tasm  /l main.asm
-tlink /t main.obj, a
+tasm  /l          lib.asm
+tlink /t main.obj lib.obj, a

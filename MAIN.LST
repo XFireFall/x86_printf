@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 1
+Turbo Assembler	 Version 4.1	    03/02/19 18:54:42	    Page 1
 main.asm
 
 
@@ -11,487 +11,95 @@ main.asm
       6
       7	0000			     .model tiny
       8
-      9				     ; machine constants
+      9				     ;	 Machine constants
      10
      11	      =B800		     VIDEO_MEM	= 0b800h
      12
      13	0000			     .code
      14
-     15				     org 100h
-     16
-     17	0100			     start:
-     18					 ; clear window
-     19	0100  B8 0002			 mov ax, 2h
-     20	0103  CD 10			 int 10h
+     15				     extrn printf : proc
+     16				     extrn putDec : proc
+     17				     extrn putBin : proc
+     18				     extrn putHex : proc
+     19
+     20				     org 100h
      21
-     22					 ; es -> video memory
-     23	0105  B8 B800			 mov ax, VIDEO_MEM
-     24	0108  8E C0			 mov es, ax
-     25
-     26					 ; di -> beginning of video vemory
-     27	010A  BF 0000			 mov di, 0
-     28
-     29					 ; parameters
-     30	010D  50 55 8B EC C7 46	02+	 push offset msg ; 1
-     31	      0036r 5D
-     32	0117  50 55 8B EC C7 46	02+	 push 'H'	 ; 2
-     33	      0048 5D
-     34	0121  50 55 8B EC C7 46	02+	 push 3802	 ; 3
-     35	      0EDA 5D
-     36	012B  50 55 8B EC C7 46	02+	 push 3802	 ; 4
-     37	      0EDA 5D
-     38	0135  50 55 8B EC C7 46	02+	 push 3802	 ; 5
-     39	      0EDA 5D
-     40	013F  50 55 8B EC C7 46	02+	 push offset str ; 6
-     41	      0000r 5D
-     42	0149  B4 07			 mov ah, 07h	 ; color
-     43	014B  E8 0008			 call printf
-     44	014E  83 C4 0C			 add sp, 2 * 6
-     45
-     46	0151  B8 4C00			 mov ax, 4c00h
-     47	0154  CD 21			 int 21h
-     48
-     49				     ;HHH=================================================HHH
-     50				     ;HHH						  HHH
-     51				     ;HHH		    printf			  HHH
-     52				     ;HHH - formatted string printing			  HHH
-     53				     ;HHH						  HHH
-     54				     ;HHH   INPUT: stack: > format (the	format string)	  HHH
-     55				     ;HHH		    ...	   (arguments)		  HHH
-     56				     ;HHH	   AH	 (color)			  HHH
-     57				     ;HHH	   ES:DI (current position)		  HHH
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 2
+     22	0100			     start:
+     23					 ; clear window
+     24	0100  B8 0002			 mov ax, 2h
+     25	0103  CD 10			 int 10h
+     26
+     27					 ; es -> video memory
+     28	0105  B8 B800			 mov ax, VIDEO_MEM
+     29	0108  8E C0			 mov es, ax
+     30
+     31					 ; di -> beginning of video vemory
+     32	010A  BF 0000			 mov di, 0
+     33
+     34					 ; parameters
+     35	010D  50 55 8B EC C7 46	02+	 push 47;0
+     36	      002F 5D
+     37	0117  50 55 8B EC C7 46	02+	 push offset str1 ; 1
+     38	      0048r 5D
+     39	0121  50 55 8B EC C7 46	02+	 push 'H'	 ; 2
+     40	      0048 5D
+     41	012B  50 55 8B EC C7 46	02+	 push 3802	 ; 3
+     42	      0EDA 5D
+     43	0135  50 55 8B EC C7 46	02+	 push 3802	 ; 4
+     44	      0EDA 5D
+     45	013F  50 55 8B EC C7 46	02+	 push 3802	 ; 5
+     46	      0EDA 5D
+     47	0149  50 55 8B EC C7 46	02+	 push offset form1 ; 6
+     48	      0000r 5D
+     49	0153  B4 07			 mov ah, 07h	 ; color
+     50	0155  E8 0000e			 call printf
+     51	0158  83 C4 0E			 add sp, 2 * 7
+     52
+     53					 ; parameters
+     54	015B  50 55 8B EC C7 46	02+	 push 200	 ; 1
+     55	      00C8 5D
+     56	0165  50 55 8B EC C7 46	02+	 push offset form2 ; 2
+     57	      0055r 5D
+Turbo Assembler	 Version 4.1	    03/02/19 18:54:42	    Page 2
 main.asm
 
 
 
-     58				     ;HHH  OUTPUT: --					  HHH
-     59				     ;HHH DESTROY: AX, BX, CX, DX			  HHH
-     60				     ;HHH	   DI, SI				  HHH
-     61				     ;HHH						  HHH
-     62				     ;HHH=================================================HHH
-     63
-     64	0156			     printf proc
-     65	0156  55			 push bp
-     66	0157  8B EC			 mov bp, sp
-     67
-     68					 ; ah -	text color
-     69					 ; al -	current	char from format
-     70					 ; bh -	color (save)
-     71
-     72					 ; si -> format	= [bp +	4]
-     73	0159  8B 76 04			 mov si, [bp + 4]
-     74	015C  83 C5 06			     add bp, 6
-     75					 ; now we are to add 2 to bp every time	we get next argument
-     76
-     77					 ; color (save)
-     78	015F  8A FC			 mov bh, ah
-     79
-     80	0161  FC			 cld
-     81
-     82	0162			     printf_next_char:
-     83					 ; getting next	char
-     84	0162  AC			 lodsb
-     85
-     86					 ; char	== 0 <=> EOL
-     87	0163  3C 00			 cmp al, 0
-     88	0165  74 2D			 je printf_longjmp_end
-     89
-     90					 ; char	== % <=> special parameter output
-     91	0167  3C 25			 cmp al, '%'
-     92	0169  74 05			 je printf_spec
-     93					     ; simple char output
-     94	016B  8A E7			     mov ah, bh
-     95	016D  AB			     stosw
-     96	016E  EB F2			     jmp printf_next_char
-     97
-     98	0170			     printf_spec:
-     99					 ; getting the actual parameter's type
-    100	0170  AC			 lodsb
-    101
-    102					 ; char	== % <=> %
-    103	0171  3C 25			 cmp al, '%'
-    104	0173  75 05			 jne printf_not_percent
-    105	0175  8A E7			     mov ah, bh
-    106	0177  AB			     stosw
-    107	0178  EB E8			     jmp printf_next_char
-    108	017A			     printf_not_percent:
-    109
-    110					 ; char	== d <=> decimal number
-    111	017A  3C 64			 cmp al, 'd'
-    112	017C  75 13			 jne printf_not_dec
-    113	017E  53			     push bx
-    114
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 3
-main.asm
-
-
-
-    115	017F  8B 46 00			     mov ax, [bp]
-    116	0182  83 C5 02				 add bp, 2
-    117	0185  50			     push ax
-    118	0186  8A E7			     mov ah, bh
-    119	0188  E8 0079			     call putDec
-    120	018B  83 C4 02			     add sp, 2 * 1
-    121
-    122	018E  5B			     pop bx
-    123	018F  EB D1			     jmp printf_next_char
-    124	0191			     printf_not_dec:
-    125
-    126
-    127	0191  EB 04 90			 jmp printf_shortjmp
-    128	0194			     printf_longjmp_end:
-    129	0194  EB 6C 90			 jmp printf_end
-    130	0197			     printf_shortjmp:
-    131
-    132
-    133					 ; char	== b <=> binary	number
-    134	0197  3C 62			 cmp al, 'b'
-    135	0199  75 13			 jne printf_not_bin
-    136	019B  53			     push bx
-    137
-    138	019C  8B 46 00			     mov ax, [bp]
-    139	019F  83 C5 02				 add bp, 2
-    140	01A2  50			     push ax
-    141	01A3  8A E7			     mov ah, bh
-    142	01A5  E8 0086			     call putBin
-    143	01A8  83 C4 02			     add sp, 2 * 1
-    144
-    145	01AB  5B			     pop bx
-    146	01AC  EB B4			     jmp printf_next_char
-    147	01AE			     printf_not_bin:
-    148
-    149					 ; char	== x <=> hex number
-    150	01AE  3C 78			 cmp al, 'x'
-    151	01B0  75 13			 jne printf_not_hex
-    152	01B2  53			     push bx
-    153	01B3  8B 46 00			     mov ax, [bp]
-    154	01B6  83 C5 02				 add bp, 2
-    155	01B9  50			     push ax
-    156	01BA  8A E7			     mov ah, bh
-    157	01BC  E8 0096			     call putHex
-    158	01BF  83 C4 02			     add sp, 2 * 1
-    159
-    160	01C2  5B			     pop bx
-    161	01C3  EB 9D			     jmp printf_next_char
-    162	01C5			     printf_not_hex:
-    163
-    164					 ; char	== c <=> char parameter
-    165	01C5  3C 63			 cmp al, 'c'
-    166	01C7  75 0B			 jne printf_not_char
-    167	01C9  8B 46 00			     mov ax, [bp]
-    168	01CC  83 C5 02				 add bp, 2
-    169	01CF  8A E7			     mov ah, bh
-    170	01D1  AB			     stosw
-    171
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 4
-main.asm
-
-
-
-    172	01D2  EB 8E			     jmp printf_next_char
-    173	01D4			     printf_not_char:
-    174
-    175					 ; char	== s <=> string	parameter
-    176	01D4  3C 73			 cmp al, 's'
-    177	01D6  75 15			 jne printf_not_str
-    178					     ; in order	to return to format-string scanning
-    179	01D8  56			     push si
-    180
-    181	01D9  8B 76 00			     mov si, [bp]
-    182	01DC  83 C5 02				 add bp, 2
-    183	01DF  8A E7			     mov ah, bh
-    184	01E1			     printf_loop_start_s:
-    185	01E1  AC			     lodsb
-    186	01E2  3C 00			     cmp al, 0
-    187	01E4  74 03			     je	printf_loop_end_s
-    188	01E6  AB				 stosw
-    189	01E7  EB F8				 jmp printf_loop_start_s
-    190	01E9			     printf_loop_end_s:
-    191					     ; returning to format-string scanning
-    192	01E9  5E			     pop si
-    193
-    194	01EA  E9 FF75			     jmp printf_next_char
-    195	01ED			     printf_not_str:
-    196	01ED  53			 push bx
-    197
-    198	01EE  50			 push ax
-    199	01EF  50 55 8B EC C7 46	02+	 push offset printf_errMsg
-    200	      0043r 5D
-    201	01F9  B4 84			 mov ah, 84h
-    202	01FB  E8 FF58			 call printf
-    203	01FE  83 C4 04			 add sp, 2 * 2
-    204
-    205	0201  5B			 pop bx
-    206
-    207	0202			     printf_end:
-    208
-    209	0202  5D			 pop bp
-    210	0203  C3			 ret
-    211	0204				 endp
-    212
-    213				     ;HHH=================================================HHH
-    214				     ;HHH						  HHH
-    215				     ;HHH		    putDec			  HHH
-    216				     ;HHH - print a number as decimal			  HHH
-    217				     ;HHH						  HHH
-    218				     ;HHH   INPUT: stack: > num	 (the number to	print)	  HHH
-    219				     ;HHH	   AH	 (color)			  HHH
-    220				     ;HHH	   ES:DI (current position)		  HHH
-    221				     ;HHH  OUTPUT: --					  HHH
-    222				     ;HHH DESTROY: AX, BX, CX, DX			  HHH
-    223				     ;HHH	   DI					  HHH
-    224				     ;HHH						  HHH
-    225				     ;HHH=================================================HHH
-    226
-    227	0204			     putDec proc
-    228	0204  55			 push bp
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 5
-main.asm
-
-
-
-    229	0205  8B EC			 mov bp, sp
-    230
-    231					 ; num = [bp + 4]
-    232
-    233					 ;---------------------------------------------
-    234
-    235					 ; ax -	current	num
-    236					 ; bh -	color
-    237					 ; bl -	current	digit
-    238					 ; bx -	$10 (for division)
-    239					 ; ch -	color
-    240					 ; cl -	#digits	<=> current displacement
-    241					 ; dx (dl actually) - remain (from division)
-    242
-    243					 ; color
-    244	0207  8A EC			 mov ch, ah
-    245
-    246					 ; displacement
-    247	0209  B1 00			 mov cl, 0
-    248
-    249					 ; ax =	num
-    250	020B  8B 46 04			 mov ax, [bp + 4]
-    251
-    252	020E			     putDec_step:
-    253					 ; ax -> ax*10 + dx, dx<10 => dx <=> dl
-    254					 ;	    =bx
-    255	020E  BA 0000			 mov dx, 0
-    256	0211  BB 000A			 mov bx, 10
-    257	0214  F7 F3			 div bx
-    258
-    259					 ; bl =	dl (remain)
-    260	0216  8A DA			 mov bl, dl
-    261
-    262					 ; converting bx to char
-    263	0218  80 C3 30			 add bl, '0'
-    264	021B  8A FD			 mov bh, ch
-    265	021D  53			 push bx
-    266
-    267					 ; ++displacement
-    268	021E  FE C1			 inc cl
-    269
-    270	0220  3D 0000			 cmp ax, 0
-    271	0223  75 E9			 jne putDec_step
-    272
-    273					 ; cl => cx
-    274	0225  B5 00			 mov ch, 0
-    275
-    276	0227  FC			 cld
-    277
-    278	0228			     putDec_loop:
-    279	0228  58			 pop ax
-    280	0229  AB			 stosw
-    281	022A  E2 FC			 loop putDec_loop
-    282
-    283	022C  5D			 pop bp
-    284	022D  C3			 ret
-    285	022E				 endp
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 6
-main.asm
-
-
-
-    286
-    287				     ;HHH=================================================HHH
-    288				     ;HHH						  HHH
-    289				     ;HHH		    putBin			  HHH
-    290				     ;HHH - print a number as binary			  HHH
-    291				     ;HHH						  HHH
-    292				     ;HHH   INPUT: stack: > num	 (the number to	print)	  HHH
-    293				     ;HHH	   AH	 (color)			  HHH
-    294				     ;HHH	   ES:DI (current position)		  HHH
-    295				     ;HHH  OUTPUT: --					  HHH
-    296				     ;HHH DESTROY: AX, CX				  HHH
-    297				     ;HHH	   DI					  HHH
-    298				     ;HHH						  HHH
-    299				     ;HHH=================================================HHH
-    300
-    301	022E			     putBin proc
-    302	022E  55			 push bp
-    303	022F  8B EC			 mov bp, sp
-    304
-    305					 ; num = [bp + 4]
-    306
-    307					 ;---------------------------------------------
-    308
-    309					 ; ax -	current	num
-    310					 ; ch -	text color
-    311					 ; cl -	#digits	<=> current displacement
-    312
-    313					 ; color
-    314	0231  8A EC			 mov ch, ah
-    315
-    316					 ; displacement
-    317	0233  B1 00			 mov cl, 0
-    318
-    319					 ; num
-    320	0235  8B 46 04			 mov ax, [bp + 4]
-    321
-    322	0238			     putBin_step:
-    323					 ; ax %	2 <=> last bit (mask 0001)
-    324	0238  25 0001			 and ax, 0001h
-    325
-    326					 ; converting to char
-    327	023B  04 30			 add al, '0'
-    328	023D  8A E5			 mov ah, ch
-    329	023F  50			 push ax
-    330
-    331					 ; ++displacement
-    332	0240  FE C1			 inc cl
-    333	0242  8B 46 04			 mov ax, [bp + 4]
-    334	0245  D3 E8			 shr ax, cl
-    335
-    336					 ; num == 0 <=>	end
-    337	0247  3D 0000			 cmp ax, 0
-    338	024A  75 EC			 jne putBin_step
-    339
-    340					 ; cl => cx
-    341	024C  B5 00			 mov ch, 0
-    342
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 7
-main.asm
-
-
-
-    343	024E  FC			 cld
-    344
-    345	024F			     putBin_loop:
-    346	024F  58			 pop ax
-    347	0250  AB			 stosw
-    348	0251  E2 FC			 loop putBin_loop
-    349
-    350					 ;---------------------------------------------
-    351
-    352	0253  5D			 pop bp
-    353	0254  C3			 ret
-    354	0255				 endp
-    355
-    356				     ;HHH=================================================HHH
-    357				     ;HHH						  HHH
-    358				     ;HHH		    putHex			  HHH
-    359				     ;HHH - print a number as a	hex number		  HHH
-    360				     ;HHH						  HHH
-    361				     ;HHH   INPUT: stack: > num	 (the number to	print)	  HHH
-    362				     ;HHH	   AH	 (color)			  HHH
-    363				     ;HHH	   ES:DI (current position)		  HHH
-    364				     ;HHH  OUTPUT: --					  HHH
-    365				     ;HHH DESTROY: AX, CX				  HHH
-    366				     ;HHH	   DI					  HHH
-    367				     ;HHH						  HHH
-    368				     ;HHH=================================================HHH
-    369
-    370	0255			     putHex proc
-    371	0255  55			 push bp
-    372	0256  8B EC			 mov bp, sp
-    373
-    374					 ; num = [bp + 4]
-    375
-    376					 ;---------------------------------------------
-    377
-    378					 ; ax -	current	num
-    379					 ; ch -	text color
-    380					 ; cl -	4*#digits = current displacement
-    381
-    382					 ;color
-    383	0258  8A EC			 mov ch, ah
-    384
-    385					 ; displacement
-    386	025A  B1 00			 mov cl, 0
-    387
-    388					 ; num
-    389	025C  8B 46 04			 mov ax, [bp + 4]
-    390
-    391	025F			     putHex_step:
-    392					 ; ax %	16 <=> last 4 bits (mask 1111 =	F)
-    393	025F  25 000F			 and ax, 0Fh
-    394
-    395					 ; converting to char depends on value:
-    396					 ;  0... 9 -> '0'...'9'
-    397					 ; 10...15 -> 'A'...'F'
-    398	0262  3C 0A			 cmp al, 10
-    399	0264  72 02			 jb putHex_isnum
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 8
-main.asm
-
-
-
-    400	0266  04 07			     add al, 'A' - 10 -	'0'
-    401	0268			     putHex_isnum:
-    402	0268  04 30			 add al, '0'
-    403	026A  8A E5			 mov ah, ch
-    404	026C  50			 push ax
-    405
-    406					 ; displacement	+= 4 bit
-    407	026D  80 C1 04			 add cl, 4
-    408	0270  8B 46 04			 mov ax, [bp + 4]
-    409	0273  D3 E8			 shr ax, cl
-    410
-    411	0275  3D 0000			 cmp ax, 0
-    412	0278  75 E5			 jne putHex_step
-    413
-    414					 ; cl *	2 => cx
-    415					 ; (cl * 2) = #digits /	2 = #bytes to print
-    416	027A  D0 E9 D0 E9		 shr cl, 2
-    417	027E  B5 00			 mov ch, 0
-    418
-    419	0280  FC			 cld
-    420
-    421	0281			     putHex_loop:
-    422	0281  58			 pop ax
-    423	0282  AB			 stosw
-    424	0283  E2 FC			 loop putHex_loop
-    425
-    426					 ;---------------------------------------------
-    427
-    428	0285  5D			 pop bp
-    429	0286  C3			 ret
-    430	0287				 endp
-    431
-    432				     ;=======================================================
-    433
-    434	0287			     .data
-    435
-    436	0000  6D 65 6F 77 20 25	64+  str	   db 'meow %d(10) = %b(2) = %x(16) %c%s 100%% %v some trash', 0
-    437	      28 31 30 29 20 3D	20+
-    438	      25 62 28 32 29 20	3D+
-    439	      20 25 78 28 31 36	29+
-    440	      20 25 63 25 73 20	31+
-    441	      30 30 25 25 20 25	76+
-    442	      20 73 6F 6D 65 20	74+
-    443	      72 61 73 68 00
-*Warning* main.asm(429)	Reserved word used as symbol: STR
-    444	0036  65 6C 6C 6F 2C 20	77+  msg	   db 'ello, world!', 0
-    445	      6F 72 6C 64 21 00
-    446	0043  45 52 52 4F 52 3A	20+  printf_errMsg db 'ERROR: unknown identificator: %%%c', 0
-    447	      75 6E 6B 6E 6F 77	6E+
-    448	      20 69 64 65 6E 74	69+
-    449	      66 69 63 61 74 6F	72+
-    450	      3A 20 25 25 25 63	00
-    451
-    452				     end start
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 9
+     58	016F  B4 03			 mov ah, 03h	 ; color
+     59	0171  E8 0000e			 call printf
+     60	0174  83 C4 04			 add sp, 2 * 2
+     61
+     62	0177  B8 4C00			 mov ax, 4c00h
+     63	017A  CD 21			 int 21h
+     64
+     65
+     66
+     67	017C			     .data
+     68
+     69	0000  6D 65 6F 77 5C 5C	5C+  form1	     db	'meow\\\n%d(10)	= %b(2)	= %x(16) %c%s 100%% some\i\b\b\b\bnone\n\0 trash', 0
+     70	      6E 25 64 28 31 30	29+
+     71	      20 3D 20 25 62 28	32+
+     72	      29 20 3D 20 25 78	28+
+     73	      31 36 29 20 25 63	25+
+     74	      73 20 31 30 30 25	25+
+     75	      20 73 6F 6D 65 5C	69+
+     76	      5C 62 5C 62 5C 62	5C+
+     77	      62 6E 6F 6E 65 5C	6E+
+     78	      5C 30 20 74 72 61	73+
+     79	      68 00
+     80	0048  65 6C 6C 6F 2C 20	77+  str1	     db	'ello, world!',	0
+     81	      6F 72 6C 64 21 00
+     82	0055  54 68 69 73 20 73	74+  form2	     db	'This string has just got printed\m: %d%% gureto\n', 0
+     83	      72 69 6E 67 20 68	61+
+     84	      73 20 6A 75 73 74	20+
+     85	      67 6F 74 20 70 72	69+
+     86	      6E 74 65 64 5C 6D	3A+
+     87	      20 25 64 25 25 20	67+
+     88	      75 72 65 74 6F 5C	6E+
+     89	      00
+     90
+     91				     end start
+Turbo Assembler	 Version 4.1	    03/02/19 18:54:42	    Page 3
 Symbol Table
 
 
@@ -501,7 +109,7 @@ Symbol Name			  Type	 Value
 
 ??DATE				  Text	 "03/02/19"
 ??FILENAME			  Text	 "main	  "
-??TIME				  Text	 "01:09:36"
+??TIME				  Text	 "18:54:42"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @CODE				  Text	 DGROUP
@@ -515,45 +123,19 @@ Symbol Name			  Type	 Value
 @MODEL				  Text	 1
 @STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-MSG				  Byte	 DGROUP:0036
-PRINTF				  Near	 DGROUP:0156
-PRINTF_END			  Near	 DGROUP:0202
-PRINTF_ERRMSG			  Byte	 DGROUP:0043
-PRINTF_LONGJMP_END		  Near	 DGROUP:0194
-PRINTF_LOOP_END_S		  Near	 DGROUP:01E9
-PRINTF_LOOP_START_S		  Near	 DGROUP:01E1
-PRINTF_NEXT_CHAR		  Near	 DGROUP:0162
-PRINTF_NOT_BIN			  Near	 DGROUP:01AE
-PRINTF_NOT_CHAR			  Near	 DGROUP:01D4
-PRINTF_NOT_DEC			  Near	 DGROUP:0191
-PRINTF_NOT_HEX			  Near	 DGROUP:01C5
-PRINTF_NOT_PERCENT		  Near	 DGROUP:017A
-PRINTF_NOT_STR			  Near	 DGROUP:01ED
-PRINTF_SHORTJMP			  Near	 DGROUP:0197
-PRINTF_SPEC			  Near	 DGROUP:0170
-PUTBIN				  Near	 DGROUP:022E
-PUTBIN_LOOP			  Near	 DGROUP:024F
-PUTBIN_STEP			  Near	 DGROUP:0238
-PUTDEC				  Near	 DGROUP:0204
-PUTDEC_LOOP			  Near	 DGROUP:0228
-PUTDEC_STEP			  Near	 DGROUP:020E
-PUTHEX				  Near	 DGROUP:0255
-PUTHEX_ISNUM			  Near	 DGROUP:0268
-PUTHEX_LOOP			  Near	 DGROUP:0281
-PUTHEX_STEP			  Near	 DGROUP:025F
+FORM1				  Byte	 DGROUP:0000
+FORM2				  Byte	 DGROUP:0055
+PRINTF				  Near	 DGROUP:---- Extern
+PUTBIN				  Near	 DGROUP:---- Extern
+PUTDEC				  Near	 DGROUP:---- Extern
+PUTHEX				  Near	 DGROUP:---- Extern
 START				  Near	 DGROUP:0100
-STR				  Byte	 DGROUP:0000
+STR1				  Byte	 DGROUP:0048
 VIDEO_MEM			  Number B800
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
-  _DATA				  16  0066 Word	  Public  DATA
-  _TEXT				  16  0287 Word	  Public  CODE
-Turbo Assembler	 Version 4.1	    03/02/19 01:09:36	    Page 10
-Error Summary
-
-
-
-*Warning* main.asm(429)	Reserved word used as symbol: STR
+  _DATA				  16  0087 Word	  Public  DATA
+  _TEXT				  16  017C Word	  Public  CODE
 
